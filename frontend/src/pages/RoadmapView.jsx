@@ -99,12 +99,16 @@ export default function RoadmapView() {
               <button className="btn small" onClick={() => action(() => api.downloadPdf(roadmap.id, roadmap.topic))}>
                 Download PDF
               </button>
-              <button
-                className="btn small ghost"
-                onClick={() => action(() => api.emailRoadmap(roadmap.id), "Check your inbox in a minute.")}
-              >
-                Email me a copy
-              </button>
+              {roadmap.email_to && (
+                <button
+                  className="btn small ghost"
+                  onClick={() =>
+                    action(() => api.emailRoadmap(roadmap.id), `Sending to ${roadmap.email_to}.`)
+                  }
+                >
+                  Email a copy
+                </button>
+              )}
             </>
           )}
           {roadmap.status === "failed" && (

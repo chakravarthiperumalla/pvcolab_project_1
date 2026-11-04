@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from . import emailer, llm, pdf, render
 from .config import settings
 from .database import SessionLocal
-from .models import Day, Quiz, Roadmap, User
+from .models import Day, Quiz, Roadmap
 
 log = logging.getLogger(__name__)
 
@@ -129,9 +129,9 @@ def _generate(db, roadmap: Roadmap) -> None:
     db.commit()
 
     # 4. Optional email (never fails the roadmap)
-    if roadmap.email_when_done:
+    if roadmap.email_to:
         try:
-            send_pdf_email(db, roadmap)
+            send_pdf_email(roadmap, roadmap.email_to)
         except Exception:  # noqa: BLE001
             log.exception("Could not email roadmap %s", roadmap.id)
 
@@ -141,6 +141,5 @@ def build_pdf(roadmap: Roadmap) -> bytes:
     return pdf.markdown_to_pdf(md)
 
 
-def send_pdf_email(db, roadmap: Roadmap) -> None:
-    user = db.get(User, roadmap.user_id)
-    emailer.send_roadmap_email(user.email, roadmap.topic, roadmap.duration, roadmap.id, build_pdf(roadmap))
+def send_pdf_email(roadmap: Roadmap, to: str) -> None:
+    emailer.send_roadmap_email(to, roadmap.topic, roadmap.duration, roadmap.id, build_pdf(roadmap))

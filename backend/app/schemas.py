@@ -4,29 +4,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class Credentials(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
-
-
-class UserOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    email: EmailStr
-
-
-class TokenOut(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserOut
-
-
 class RoadmapCreate(BaseModel):
     topic: str = Field(min_length=2, max_length=200)
     duration: int = Field(ge=1, le=180)
     level: Literal["Beginner", "Intermediate", "Advanced"]
     hours_per_day: float = Field(gt=0, le=12)
-    email_when_done: bool = False
+    # Optional: address to send the finished handbook to (requires SMTP config).
+    email_to: EmailStr | None = None
 
 
 class RoadmapSummary(BaseModel):
@@ -40,6 +24,7 @@ class RoadmapSummary(BaseModel):
     error: str | None
     total_steps: int
     done_steps: int
+    email_to: str | None
     created_at: datetime
 
 
@@ -73,3 +58,7 @@ class DayProgress(BaseModel):
 class QuizScore(BaseModel):
     score: int = Field(ge=0)
     total: int = Field(ge=1)
+
+
+class EmailRequest(BaseModel):
+    to: EmailStr | None = None

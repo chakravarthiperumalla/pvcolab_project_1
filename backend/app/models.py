@@ -13,22 +13,10 @@ def utcnow() -> datetime:
 ACTIVE_STATUSES = ("queued", "planning", "generating")
 
 
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
-    roadmaps: Mapped[list["Roadmap"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-
-
 class Roadmap(Base):
     __tablename__ = "roadmaps"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     topic: Mapped[str] = mapped_column(String(200))
     duration: Mapped[int] = mapped_column(Integer)
     level: Mapped[str] = mapped_column(String(20))
@@ -38,10 +26,10 @@ class Roadmap(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_steps: Mapped[int] = mapped_column(Integer, default=0)
     done_steps: Mapped[int] = mapped_column(Integer, default=0)
-    email_when_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Where to send the finished handbook, if the user asked for it at creation.
+    email_to: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    user: Mapped[User] = relationship(back_populates="roadmaps")
     days: Mapped[list["Day"]] = relationship(
         back_populates="roadmap", cascade="all, delete-orphan", order_by="Day.day_number"
     )

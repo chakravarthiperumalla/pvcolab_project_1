@@ -8,7 +8,7 @@ from sqlalchemy import update
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .models import ACTIVE_STATUSES, Roadmap
-from .routers import auth, roadmaps
+from .routers import roadmaps
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,7 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
 app.include_router(roadmaps.router)
 
 

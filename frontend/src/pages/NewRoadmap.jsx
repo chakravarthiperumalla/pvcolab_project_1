@@ -9,7 +9,7 @@ export default function NewRoadmap() {
     duration: 30,
     level: "Beginner",
     hours_per_day: 2,
-    email_when_done: false,
+    email_to: "",
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,6 +26,7 @@ export default function NewRoadmap() {
         topic: form.topic.trim(),
         duration: Number(form.duration),
         hours_per_day: Number(form.hours_per_day),
+        email_to: form.email_to.trim() || null,
       });
       navigate(`/roadmaps/${roadmap.id}`);
     } catch (err) {
@@ -64,9 +65,9 @@ export default function NewRoadmap() {
             <option>Advanced</option>
           </select>
         </label>
-        <label className="check">
-          <input type="checkbox" checked={form.email_when_done} onChange={set("email_when_done")} />
-          Email me the PDF when it's ready
+        <label>
+          Email the PDF to <span className="muted">(optional, needs SMTP configured)</span>
+          <input type="email" placeholder="you@example.com" value={form.email_to} onChange={set("email_to")} />
         </label>
         {error && <p className="error">{error}</p>}
         <button className="btn" disabled={busy}>

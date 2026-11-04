@@ -1,29 +1,30 @@
 # Roadmap Studio
 
-A full-stack SaaS version of the n8n "AI Learning Roadmap Generator" workflow.
-Users sign up, describe a topic, and get a day-by-day learning handbook (lessons, practice,
-assignments, module quizzes) they can read in the app, track progress on, download as a PDF, or
-receive by email.
+Describe a topic, get a day-by-day learning handbook. Roadmap Studio plans a course with
+Claude, writes every day's lesson (theory, examples, common mistakes, practice, an assignment),
+builds a quiz after every module, and gives you a reader with progress tracking, scored quizzes
+and a PDF export.
+
+It started as an n8n workflow and became a small self-hosted app.
 
 - **Frontend:** React + Vite (`frontend/`)
-- **Backend:** FastAPI + SQLAlchemy + JWT auth (`backend/`)
-- **AI:** Claude via the Anthropic API (planner → per-day lessons → per-module quizzes)
+- **Backend:** FastAPI + SQLAlchemy (`backend/`)
+- **AI:** Claude via the Anthropic API — planner → per-day lessons → per-module quizzes
 - **Database:** SQLite by default, Postgres via `DATABASE_URL`
 
-## How the n8n workflow maps to the app
+## ⚠️ There is no login — read this before you deploy
 
-| n8n node(s) | App equivalent |
-|---|---|
-| Form Trigger, Edit Fields, Validate Duration | `NewRoadmap.jsx` form + `RoadmapCreate` validation (1–180 days) |
-| Course Planner, Parse Planner JSON | `llm.plan_roadmap` |
-| Loop Over Days, Day Content Generator, Day JSON to Markdown | `generator._generate` (parallel workers) + `llm.generate_day` + `render.day_to_markdown` |
-| Group Into Modules, Loop Over Modules, Module Quiz Generator | module grouping + `llm.generate_quiz` (interactive quizzes, scored in-app) |
-| Final Assembly, Markdown to HTML, HTML to PDF | `render.roadmap_to_markdown` + `pdf.markdown_to_pdf` (no external PDF API) |
-| Upload to Drive, Send Email | PDF download endpoint + optional SMTP email (`emailer.py`) |
+This app has **no authentication**. Anyone who can reach it can read every roadmap, create new
+ones, and delete them. That is deliberate: it is built to be run by one person on their own
+machine.
 
-Improvements over the workflow: system prompts are explicit, JSON parsing retries, days generate in
-parallel instead of sequentially with waits, the output-format field is replaced by an in-app reader
-plus PDF, the roadmap table shows real day titles, and failed runs resume without redoing finished work.
+Generating a roadmap spends **your** money on the Anthropic API — roughly one model call per day
+of the plan, so a 30-day roadmap is ~35 calls. If you expose this to the internet with your API
+key in `.env`, strangers can run up your bill.
+
+Run it on `localhost` (the default), or put it behind a reverse proxy with your own auth
+(basic auth, Tailscale, an SSO proxy) before it leaves your machine. `MAX_ACTIVE_ROADMAPS`
+caps concurrent generations but does **not** cap how many someone can run in a day.
 
 ## Run it locally
 
@@ -31,16 +32,10 @@ plus PDF, the roadmap table shows real day titles, and failed runs resume withou
 
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # then set ANTHROPIC_API_KEY and a long random SECRET_KEY
+cp .env.example .env        # then set ANTHROPIC_API_KEY
 uvicorn app.main:app --reload --port 8000
-```
-
-Run the tests (the LLM is mocked, no API key needed):
-
-```bash
-pytest
 ```
 
 ### 2. Frontend
@@ -51,39 +46,70 @@ npm install
 npm run dev                 # http://localhost:5173, proxies /api to localhost:8000
 ```
 
+Open http://localhost:5173 and create a roadmap. Start with a short one (3 days) to check your
+API key works before paying for a 30-day plan.
+
+### Tests
+
+```bash
+cd backend && pytest        # the LLM is mocked, so no API key is needed
+```
+
 ## Configuration (`backend/.env`)
 
 | Variable | Purpose |
 |---|---|
 | `ANTHROPIC_API_KEY` | Required for generation |
-| `SECRET_KEY` | JWT signing key — set a long random value in production |
 | `DATABASE_URL` | e.g. `postgresql+psycopg://user:pass@host/db` (install `psycopg[binary]`) |
-| `PLANNER_MODEL`, `DAY_MODEL`, `QUIZ_MODEL` | Model per stage (defaults match the n8n workflow) |
-| `MAX_ACTIVE_ROADMAPS_PER_USER` | Cost guard: concurrent generations per user (default 2) |
+| `PLANNER_MODEL`, `DAY_MODEL`, `QUIZ_MODEL` | Model per stage |
+| `MAX_DAYS` | Hard cap on roadmap length (default 180) |
+| `DAYS_PER_MODULE` | Days per quiz module (default 6) |
 | `LLM_WORKERS` | Parallel LLM calls per roadmap (default 4) |
-| `SMTP_*` | Enables "email me my handbook". Leave `SMTP_HOST` empty to disable |
+| `MAX_ACTIVE_ROADMAPS` | Cost guard: concurrent generations (default 2) |
+| `SMTP_*` | Enables emailing the PDF. Leave `SMTP_HOST` empty to disable |
 | `FRONTEND_URL` | CORS origin and link target in emails |
 
 ## API
 
+No authentication headers are needed on any endpoint.
+
 | Method | Path | |
 |---|---|---|
-| POST | `/api/auth/register`, `/api/auth/login` | returns a JWT |
-| GET | `/api/auth/me` | |
+| GET | `/api/health` | liveness |
 | POST / GET | `/api/roadmaps` | create (starts background generation) / list |
 | GET / DELETE | `/api/roadmaps/{id}` | detail with days and quizzes / delete |
 | POST | `/api/roadmaps/{id}/retry` | resume a failed roadmap |
 | PATCH | `/api/roadmaps/{id}/days/{n}` | mark a day complete |
 | POST | `/api/roadmaps/{id}/quizzes/{module}/score` | save a quiz score |
 | GET | `/api/roadmaps/{id}/pdf` | download the handbook |
-| POST | `/api/roadmaps/{id}/email` | email the PDF to the account address |
+| POST | `/api/roadmaps/{id}/email` | email the PDF (`{"to": "..."}`, or the address saved at creation) |
 
-## Before you deploy
+Interactive docs are at http://localhost:8000/docs while the backend runs.
 
-- Generation runs in-process (FastAPI background tasks). That's fine for one server; interrupted jobs
-  are marked failed on restart and can be resumed with Retry. For multiple workers or heavier
-  traffic, move `generator.run_generation` onto a queue (Celery/RQ/Arq).
-- Add rate limiting on the auth endpoints and consider email verification and payments/credits —
-  each 30-day roadmap costs real API money.
-- Serve the built frontend (`npm run build` → `dist/`) from a static host or reverse proxy that
-  forwards `/api` to the backend, and use Postgres plus HTTPS.
+## How it works
+
+Generation runs as a FastAPI background task and is **resumable**: each day and quiz is saved as
+soon as it is written, so a failed run picks up where it stopped instead of re-paying for
+finished work. Press Retry on a failed roadmap.
+
+| n8n node(s) | App equivalent |
+|---|---|
+| Form Trigger, Validate Duration | `NewRoadmap.jsx` + `RoadmapCreate` validation (1–180 days) |
+| Course Planner, Parse Planner JSON | `llm.plan_roadmap` |
+| Loop Over Days, Day Content Generator | `generator._generate` (thread pool) + `llm.generate_day` |
+| Group Into Modules, Module Quiz Generator | module grouping + `llm.generate_quiz` |
+| Final Assembly, Markdown to HTML, HTML to PDF | `render.roadmap_to_markdown` + `pdf.markdown_to_pdf` |
+| Upload to Drive, Send Email | PDF download endpoint + optional SMTP (`emailer.py`) |
+
+## Known limits
+
+- Jobs run in-process. Fine for one server; anything interrupted by a restart is marked failed
+  and can be resumed with Retry. For multiple workers, move `generator.run_generation` onto a
+  queue (Celery/RQ/Arq).
+- No rate limiting. See the warning above.
+- Quality depends entirely on the model. Long roadmaps drift; the planner is the piece worth
+  tuning first.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

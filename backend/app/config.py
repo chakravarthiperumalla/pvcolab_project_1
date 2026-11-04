@@ -5,8 +5,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "sqlite:///./roadmaps.db"
-    secret_key: str = "dev-secret-change-me"
-    access_token_minutes: int = 60 * 24 * 7
 
     anthropic_api_key: str = ""
     planner_model: str = "claude-sonnet-4-6"
@@ -16,7 +14,7 @@ class Settings(BaseSettings):
     max_days: int = 180
     days_per_module: int = 6
     llm_workers: int = 4
-    max_active_roadmaps_per_user: int = 2
+    max_active_roadmaps: int = 2
 
     frontend_url: str = "http://localhost:5173"
 
