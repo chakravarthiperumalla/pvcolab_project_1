@@ -5,6 +5,8 @@ Claude, writes every day's lesson (theory, examples, common mistakes, practice, 
 builds a quiz after every module, and gives you a reader with progress tracking, scored quizzes
 and a PDF export.
 
+Not just Anthropic API free gemini api also will be very help full to generate the skill set and total sylabus of the skill
+
 It started as an n8n workflow and became a small self-hosted app.
 
 - **Frontend:** React + Vite (`frontend/`)
